@@ -199,6 +199,8 @@ body {
   background: var(--accent);
   color: #000;
   border-radius: 6px;
+  box-shadow: 0 0 10px var(--accent-glow);
+  font-weight: 800;
 }
 
 .floating-nav-controls {
@@ -289,9 +291,12 @@ body {
 }
 
 .month-cell.centered {
-  color: var(--accent);
+  color: #fff;
+  background: var(--accent-glow);
+  border-radius: 4px;
   text-decoration: underline;
   text-underline-offset: 4px;
+  font-weight: 900;
 }
 
 .gantt-body {
@@ -1342,7 +1347,9 @@ body {
   display: flex;
   flex-direction: column;
   background: rgba(0, 0, 0, 0.15);
-  height: 100%;
+  min-height: 0;
+  /* 그리드 내에서 넘침 방지 */
+  height: auto;
   overflow: hidden;
 }
 
