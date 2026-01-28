@@ -143,8 +143,8 @@ body {
 
 .main-layout {
   display: grid;
-  grid-template-rows: 33% 67%;
-  /* 100vh - header를 균등하게 배분 */
+  grid-template-rows: auto 1fr;
+  /* 33% 67% 대신 auto 1fr로 변경하여 겹침 방지 */
   height: calc(100vh - var(--top-h));
   overflow: hidden;
 }
@@ -154,11 +154,97 @@ body {
 ================================ */
 
 .middle-area {
-  height: 320px;
-  /* 고정 높이 */
-  padding: 24px 32px;
+  height: auto;
+  min-height: 380px;
+  /* 최소 높이 보장 */
+  max-height: 420px;
+  padding: 8px 32px 24px 32px;
+  /* 상단 간격 축소, 하단 여유 공간 확보 */
   background: rgba(0, 0, 0, 0.2);
   border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  z-index: 5;
+  /* 푸터보다 위에 오도록 */
+}
+
+.gantt-top-nav {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-toggle-group {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 8px;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-right: 8px;
+}
+
+.view-toggle-group .btn-sm {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+}
+
+.view-toggle-group .btn-sm.active {
+  background: var(--accent);
+  color: #000;
+  border-radius: 6px;
+}
+
+.floating-nav-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.btn-nav-arrow {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 0.8rem;
+}
+
+.btn-nav-arrow:hover:not(:disabled) {
+  background: var(--accent);
+  color: #000;
+  transform: scale(1.1);
+}
+
+.btn-nav-arrow:disabled {
+  opacity: 0.1;
+  cursor: not-allowed;
+}
+
+.nav-month-label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--accent);
+  min-width: 140px;
+  text-align: center;
+  letter-spacing: 0.5px;
 }
 
 .gantt {
@@ -172,20 +258,40 @@ body {
 }
 
 .gantt-header {
-  display: grid;
-  grid-template-columns: repeat(14, 1fr);
+  display: flex;
+  /* grid 대신 flex 사용으로 3개월/전체 유연성 확보 */
   border-bottom: 1px solid var(--panel-border);
   padding-bottom: 6px;
   margin-bottom: 0;
   padding-right: 8px;
-  /* 바디 스크롤바 영역과 일치시킴 */
 }
 
 .month-cell {
+  flex: 1;
   text-align: center;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 4px 0;
+  transition: all 0.2s;
+}
+
+.month-cell.clickable {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.month-cell.clickable:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.month-cell.centered {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .gantt-body {
@@ -208,13 +314,14 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  display: grid;
-  grid-template-columns: repeat(14, 1fr);
+  display: flex;
+  /* grid 대신 flex */
   pointer-events: none;
   z-index: 0;
 }
 
 .grid-line {
+  flex: 1;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -264,13 +371,12 @@ body {
 
 /* 한 줄 = 여러 작업이 올 수 있음 */
 .bar-track.compact {
-  display: grid;
-  grid-template-columns: repeat(14, 1fr);
-  grid-template-rows: 1fr;
-  /* 반드시 한 줄만 생성하도록 강제 */
-  align-items: center;
-  gap: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 36px;
+  /* 높이를 약간 늘려 텍스트 수용력 향상 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   box-sizing: border-box;
 }
 
@@ -316,11 +422,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  /* 폰트 크기 미세 축소 */
   font-weight: 700;
   color: #fff;
-  /* Always white for high contrast on colored background */
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .bar-title {

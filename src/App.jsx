@@ -141,6 +141,23 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
 
+  // --- 네비게이션 상태 추가 ---
+  const [viewMode, setViewMode] = useState("all"); // 'all' or '3month'
+  const [centerMonthIdx, setCenterMonthIdx] = useState(0);
+
+  // 3개월 보기용 데이터 산출
+  const getVisibleMonths = () => {
+    if (viewMode === "all") return MONTHS;
+
+    const start = Math.max(0, centerMonthIdx - 1);
+    const end = Math.min(MONTHS.length, start + 3);
+    // 실제 3개를 맞추기 위한 보정 (끝에 도달했을 때)
+    const adjustedStart = Math.max(0, Math.min(MONTHS.length - 3, start));
+    return MONTHS.slice(adjustedStart, adjustedStart + 3);
+  };
+
+  const visibleMonths = getVisibleMonths();
+
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
   const hoverTimeoutRef = useRef(null);
@@ -238,29 +255,30 @@ export default function App() {
   };
 
   // 간트 차트 막대 높이 계산 로직
-  // 고정 높이(약 260px) 내에서 개수에 따라 조절, 최소 높이 8px 보장
-  const getBarHeight = () => {
-    const minHeight = 8;
-    const maxHeight = 32;
-    const containerHeight = 260; // .gantt-body의 대략적인 높이
-    if (tasks.length === 0) return maxHeight;
-    const calculated = (containerHeight / tasks.length) - 8; // 8px는 간격(gap)
-    return Math.max(minHeight, Math.min(maxHeight, calculated));
-  };
+  // 사용자 피드백: 막대 두께는 바뀌지 않도록 고정 (24px)
+  const getBarHeight = () => 24;
 
   const barHeight = getBarHeight();
 
-  // 차트 전체 시작/종료 시간 (MONTHS 기준)
-  const chartStartDate = new Date(`${MONTHS[0]}-01`);
-  const chartEndDate = new Date(parseInt(MONTHS[MONTHS.length - 1].split('-')[0]), parseInt(MONTHS[MONTHS.length - 1].split('-')[1]), 0);
+  // 차트 전체 시작/종료 시간 (visibleMonths 기준)
+  const chartStartDate = new Date(`${visibleMonths[0]}-01`);
+  // visibleMonths의 마지막 달의 마지막 날 계산
+  const lastMonthStr = visibleMonths[visibleMonths.length - 1];
+  const lastMonthParts = lastMonthStr.split('-');
+  const chartEndDate = new Date(parseInt(lastMonthParts[0]), parseInt(lastMonthParts[1]), 0);
   const totalChartDuration = chartEndDate - chartStartDate;
 
   const getDatePosition = (dateStr) => {
     if (!dateStr) return 0;
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return 0;
+
+    // 현재 뷰의 범위를 벗어나는 경우 처리
+    if (date < chartStartDate) return -100; // 왼쪽 밖
+    if (date > chartEndDate) return 200;    // 오른쪽 밖
+
     const pos = ((date - chartStartDate) / totalChartDuration) * 100;
-    return Math.max(0, Math.min(100, isNaN(pos) ? 0 : pos));
+    return Math.max(-100, Math.min(200, isNaN(pos) ? 0 : pos));
   };
 
   // 로우 패킹 알고리즘: 날짜 기준 정렬 및 충돌 체크
@@ -300,17 +318,10 @@ export default function App() {
 
   // 오늘 날짜 표시선 위치 계산 (2026-01-27 기준)
   const getTodayPosition = () => {
-    const today = new Date("2026-01-27"); // 현재 시스텀 시간 기준
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const todayStr = `${year}-${String(month).padStart(2, '0')}`;
+    const today = new Date("2026-01-27"); // 현재 시스템 시간 기준
+    if (today < chartStartDate || today > chartEndDate) return null;
 
-    const monthIdx = MONTHS.indexOf(todayStr);
-    if (monthIdx === -1) return null;
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const pos = ((monthIdx + (day - 1) / daysInMonth) / MONTHS.length) * 100;
+    const pos = ((today - chartStartDate) / totalChartDuration) * 100;
     return pos;
   };
 
@@ -479,6 +490,30 @@ export default function App() {
         </div>
 
         <div className="top-actions">
+          <div className="view-toggle-group">
+            <button
+              className={`btn btn-sm ${viewMode === 'all' ? 'active' : ''}`}
+              onClick={() => setViewMode('all')}
+            >
+              전체
+            </button>
+            <button
+              className={`btn btn-sm ${viewMode === '3month' ? 'active' : ''}`}
+              onClick={() => {
+                if (viewMode !== '3month') {
+                  // 현재 '오늘' 날짜가 포함된 달을 기본 센터로 설정
+                  const today = new Date("2026-01-27");
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                  const idx = MONTHS.indexOf(todayStr);
+                  setCenterMonthIdx(idx !== -1 ? idx : 0);
+                  setViewMode('3month');
+                }
+              }}
+            >
+              3개월
+            </button>
+          </div>
+          <div className="vline"></div>
           <button className="btn btn-accent" onClick={() => setIsCalendarOpen(true)}>오늘의 할일</button>
           <div className="vline"></div>
           <button
@@ -688,24 +723,54 @@ export default function App() {
         <main className="middle-area">
           <div className="gantt">
             <div className="timeline">
-              <div className="gantt-header">
-                {MONTHS.map((m) => (
-                  <div key={m} className="month-cell">
-                    {m}
+              <div className="gantt-top-nav">
+                {viewMode === '3month' && (
+                  <div className="floating-nav-controls">
+                    <button
+                      className="btn-nav-arrow left"
+                      onClick={() => setCenterMonthIdx(prev => Math.max(0, prev - 3))}
+                      disabled={centerMonthIdx <= 0}
+                    >
+                      ◀
+                    </button>
+                    <span className="nav-month-label">
+                      {visibleMonths[0]} ~ {visibleMonths[visibleMonths.length - 1]}
+                    </span>
+                    <button
+                      className="btn-nav-arrow right"
+                      onClick={() => setCenterMonthIdx(prev => Math.min(MONTHS.length - 1, prev + 3))}
+                      disabled={centerMonthIdx >= MONTHS.length - 1}
+                    >
+                      ▶
+                    </button>
                   </div>
+                )}
+              </div>
+              <div className="gantt-header">
+                {visibleMonths.map((m) => (
+                  <button
+                    key={m}
+                    className={`month-cell clickable ${viewMode === '3month' && MONTHS[centerMonthIdx] === m ? 'centered' : ''}`}
+                    onClick={() => {
+                      setCenterMonthIdx(MONTHS.indexOf(m));
+                      setViewMode('3month');
+                    }}
+                  >
+                    {m}
+                  </button>
                 ))}
               </div>
 
               <div className="gantt-body">
                 {/* 월 경계 그리드 라인 */}
                 <div className="gantt-grid">
-                  {MONTHS.map((m) => (
+                  {visibleMonths.map((m) => (
                     <div key={`grid-${m}`} className="grid-line" />
                   ))}
                 </div>
 
                 {packedRows.map((row, rowIdx) => (
-                  <div key={rowIdx} className="bar-track compact" style={{ height: `34px`, position: 'relative' }}>
+                  <div key={rowIdx} className="bar-track compact" style={{ height: `32px`, position: 'relative' }}>
                     {row.map((b) => {
                       const progress = calculateProgress(b.checklist);
                       const leftPos = getDatePosition(b.start);
@@ -729,7 +794,7 @@ export default function App() {
                             backgroundColor: `${b.color}33`,
                             boxShadow: `0 0 12px ${b.color}22`,
                             opacity: b.status === "done" ? 0.7 : 1,
-                            height: `26px`,
+                            height: `${barHeight}px`,
                             border: `1px solid ${b.color}44`,
                             zIndex: 1
                           }}
